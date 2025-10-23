@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='70'>🌻</text></svg>">    
+    <title>ePLÁnovač</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+       :root{
+      /* Barvy převzaté z mých stránek */
+            --bg1:#00AF3F;  /* zelená */
+            --bg2:#000099;  /* tmavě modrá */
+        }
+
+       /* CSS pro vlastní vzhled a interaktivní prvky */
+        .object {
+            position: absolute;
+            background-color: #00b0f0;
+            border: 2px solid #2980b9;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: grab;
+            user-select: none;
+            /* Povoluje ruční změnu velikosti, musíme omezit nativní kurzory kvůli drag&drop */
+            resize: both; 
+            overflow: hidden;
+            box-sizing: border-box; 
+            border-radius: 6px;
+            transition: box-shadow 0.1s, background-color 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .object:hover {
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+            background-color: #0099d4;
+        }
+
+        .object:active {
+            cursor: grabbing;
+            z-index: 100; 
+        }
+        
+        /* Styl pro plátno */
+        #canvas-border {
+            border: 4px solid #34495e;
+            position: relative;
+            overflow: hidden;
+            background-color: #ecf0f1;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+            /* Zde odstraněn úvodní text, aby nebránil vykreslení */
+        }
+
+        /* Styly pro tabulku dat */
+        #data-table th, #data-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #data-table th {
+            font-weight: 600;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+        }
+    
+        footer{
+        text-align:center; color:#e9f3ff; opacity:.9;
+        font-size:.95rem;
+        }
+    
+    </style>
+</head>
+<body class="bg-gray-100 p-6 flex flex-col items-center">
+
+    <h1 class="text-3xl font-extrabold text-gray-100 mb-6">ePLÁnovač rozvržení PWBI</h1>
+
+    <!-- FORMULÁŘ VSTUPŮ -->
+    <div class="bg-white p-6 rounded-xl shadow-lg mb-8 w-full max-w-6xl">
+        <div class="grid grid-cols-5 gap-x-6 gap-y-4">
+            <!-- 1. řádek -->
+            <div class="flex flex-col bg-blue-50 p-4 rounded-md">
+                <label for="max-height" class="font-semibold text-sm text-gray-600">Max výška plátna (px)</label>
+                <input type="number" id="max-height" value="720" min="100" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex flex-col bg-blue-50 p-4 rounded-md">
+                <label for="max-width" class="font-semibold text-sm text-gray-600">Max šířka plátna (px)</label>
+                <input type="number" id="max-width" value="1280" min="100" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            
+            <div class="flex flex-col p-4 rounded-md">
+                <label for="num-objects" class="font-semibold text-sm text-gray-600">Počet objektů</label>
+                <input type="number" id="num-objects" value="6" min="1" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+           
+
+            <div class="flex flex-col bg-gray-100 p-4 rounded-md">
+                <label for="margin-top" class="font-semibold text-sm text-gray-600">Mezera zhora (px)</label>
+                <input type="number" id="margin-top" value="50" min="0" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex flex-col bg-gray-100 p-4 rounded-md">
+                <label for="margin-bottom" class="font-semibold text-sm text-gray-600">Mezera zespodu (px)</label>
+                <input type="number" id="margin-bottom" value="50" min="0" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+                   
+
+            <!-- 2. řádek -->
+             
+            
+             <div class="flex flex-col bg-blue-50 p-4 rounded-md">
+                <label for="obj-height" class="font-semibold text-sm text-gray-600">Výška objektu (px)</label>
+                <input type="number" id="obj-height" value="150" min="10" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex flex-col bg-blue-50 p-4 rounded-md">
+                <label for="obj-width" class="font-semibold text-sm text-gray-600">Šířka objektu (px)</label>
+                <input type="number" id="obj-width" value="200" min="10" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div class="flex flex-col p-4 rounded-md">
+                <label for="num-cols" class="font-semibold text-sm text-gray-600">Počet sloupců</label>
+                <input type="number" id="num-cols" value="3" min="1" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+
+            <div class="flex flex-col bg-gray-100 p-4 rounded-md">
+                <label for="margin-left" class="font-semibold text-sm text-gray-600">Mezera zleva (px)</label>
+                <input type="number" id="margin-left" value="50" min="0" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex flex-col bg-gray-100 p-4 rounded-md">
+                <label for="margin-right" class="font-semibold text-sm text-gray-600">Mezera zprava (px)</label>
+                <input type="number" id="margin-right" value="50" min="0" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+
+            <!-- Nový prvek pro výběr rozvržení -->
+            <div class="col-span-5 flex flex-col p-4 rounded-md">
+                <label for="layout-option" class="font-semibold text-sm text-gray-600">Volba rozvržení</label>
+                <select id="layout-option" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <option value="default">Výchozí mřížka</option>
+                    <option value="column-big">Velký objekt</option>
+                </select>
+            </div>
+
+            <!-- Vstupy pro ruční mezery mezi sloupci (horizontální) -->
+            <div class="col-span-5 flex flex-col p-4 rounded-md">
+                <label for="h-gaps" class="font-semibold text-sm text-gray-600">Ruční horizontální mezery mezi sloupci (px, oddělené čárkou; prázdné = rovnoměrné)</label>
+                <input type="text" id="h-gaps" placeholder="např. 50,100,50" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <!-- Vstupy pro ruční mezery mezi řádky (vertikální) -->
+            <div class="col-span-5 flex flex-col p-4 rounded-md">
+                <label for="v-gaps" class="font-semibold text-sm text-gray-600">Ruční vertikální mezery mezi řádky (px, oddělené čárkou; prázdné = rovnoměrné)</label>
+                <input type="text" id="v-gaps" placeholder="např. 20,30,20" class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+
+
+
+
+
+
+            <!-- Akční tlačítka -->
+            <div class="col-span-5 flex justify-center space-x-4 mt-4">
+                <button id="recalculate-button" class="px-6 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition duration-150 shadow-md">
+                    Přepočítat a vykreslit mřížku
+                </button>
+                <button id="add-object-button" class="px-6 py-2 bg-yellow-400 text-white font-bold rounded-lg hover:bg-yellow-600 transition duration-150 shadow-md">
+                    Přidat Objekt (a přepočítat)
+                </button>
+                <button id="remove-object-button" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition duration-150 shadow-md">
+                    Odebrat Objekt (a přepočítat)
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- OBLAST VIZUALIZACE -->
+    <div id="canvas-container" class="mb-8 w-full flex justify-center">
+        <!-- Zde se vykreslí plátno a objekty -->
+        <div id="canvas-border" style="width: 1280px; height: 720px;">
+        </div>
+    </div>
+    
+    <!-- ZPRÁVY A VÝSTUP -->
+    <div id="message-box" class="mb-4 p-3 rounded-lg border hidden w-full max-w-6xl"></div>
+
+    <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-6xl">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Data objektů</h2>
+            <button id="export-button" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150 shadow-md">
+                Exportovat do JSON (Power BI)
+            </button>
+        </div>
+        
+        <!-- Tabulka dat -->
+        <div class="overflow-x-auto">
+            <table id="data-table" class="min-w-full bg-white border-collapse">
+                <thead>
+                    <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                        <th>ID</th>
+                        <th>Šířka (px)</th>
+                        <th>Výška (px)</th>
+                        <th>Pozice X (Left)</th>
+                        <th>Pozice Y (Top)</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600 text-sm font-light" id="data-table-body">
+                    <!-- Data se generují pomocí JS -->
+                </tbody>
+            </table>
+        </div>
+        <div id="json-output" class="mt-4 p-3 bg-gray-50 border border-gray-300 rounded-lg overflow-auto max-h-40 hidden text-sm whitespace-pre"></div>
+    </div>
+
+    <script>
+        // === GLOBÁLNÍ PROMĚNNÉ A ZÁKLADNÍ NASTAVENÍ ===
+        const MIN_SPACING = 15; // Minimální povolená mezera (pro manuální nastavení)
+        let objects = [];
+        let objectIdCounter = 0;
+        let isDragging = false;
+        let isResizing = false;
+        let activeObject = null;
+        let offset = { x: 0, y: 0 };
+        let bigObjectSide = 'left'; // Výchozí strana pro Velký objekt, střídá se při opakovaném volání
+        
+        // === ZÍSKÁNÍ PRVKŮ DOM ===
+        const canvasBorder = document.getElementById('canvas-border');
+        const dataTableBody = document.getElementById('data-table-body');
+        const messageBox = document.getElementById('message-box');
+        const layoutOption = document.getElementById('layout-option');
+        
+        
+        const getInputValue = (id) => parseFloat(document.getElementById(id).value) || 0;
+
+        // === POMOCNÉ FUNKCE PRO ZOBRAZOVÁNÍ ===
+
+        /**
+         * Zobrazí zprávu s upozorněním/chybou.
+         */
+        function showMessage(text, className, spacingInfo = {}) {
+            let message = text;
+            if (spacingInfo.hSpaceBetween !== undefined || spacingInfo.vSpaceBetween !== undefined) {
+                message += '<br>';
+                if (spacingInfo.hSpaceBetween !== undefined) {
+                    message += `Horizontální mezera mezi sloupci: ${spacingInfo.hSpaceBetween.toFixed(2)} px`;
+                }
+                if (spacingInfo.vSpaceBetween !== undefined) {
+                    message += `<br>Vertikální mezera mezi řádky: ${spacingInfo.vSpaceBetween.toFixed(2)} px`;
+                }
+            }
+            messageBox.innerHTML = message;
+            messageBox.className = `mb-4 p-3 rounded-lg border w-full max-w-6xl ${className}`;
+            messageBox.style.display = 'block';
+        }
+
+        /**
+         * Skryje zprávu.
+         */
+        function hideMessage() {
+            messageBox.style.display = 'none';
+        }
+
+        // === 1. ZÁKLADNÍ LOGIKA MŘÍŽKY A PŘEPOČTU ===
+        
+        function getGridParameters() {
+            const params = {
+                maxH: getInputValue('max-height'),
+                maxW: getInputValue('max-width'),
+                numObjs: getInputValue('num-objects'),
+                objH: getInputValue('obj-height'),
+                objW: getInputValue('obj-width'),
+                mT: getInputValue('margin-top'),
+                mB: getInputValue('margin-bottom'),
+                mL: getInputValue('margin-left'),
+                mR: getInputValue('margin-right'),
+                numCols: Math.max(1, Math.floor(getInputValue('num-cols')))
+            };
+            
+            // Přepočet numRows podle skutečného počtu objektů
+            params.numRows = Math.ceil(params.numObjs / params.numCols);
+            // Omezení numRows podle dostupné výšky
+            const maxRowsFit = Math.floor((params.maxH - params.mT - params.mB) / params.objH);
+            params.numRows = Math.min(params.numRows, maxRowsFit);
+
+
+            // Načtení ručních mezer
+            const hGapsInput = document.getElementById('h-gaps').value.trim();
+            params.hGaps = hGapsInput ? hGapsInput.split(',').map(g => parseFloat(g.trim()) || 0) : [];
+
+            const vGapsInput = document.getElementById('v-gaps').value.trim();
+            params.vGaps = vGapsInput ? vGapsInput.split(',').map(g => parseFloat(g.trim()) || 0) : [];
+
+            // Pro „Sloupec + Velký" omezení na 1 horizontální mezeru
+            if (document.getElementById('layout-option').value === 'column-big') {
+                params.hGaps = params.hGaps.length > 0 ? [params.hGaps[0]] : [MIN_SPACING];
+            }
+
+            return params;
+        }
+        
+
+        /**
+         * Hlavní funkce pro výpočet a vykreslení podle vybraného layoutu.
+         */
+        function calculateLayout() {
+            const selectedLayout = layoutOption.value;
+            const params = getGridParameters();
+
+            canvasBorder.style.width = `${params.maxW}px`;
+            canvasBorder.style.height = `${params.maxH}px`;
+
+            // Omezení počtu objektů podle kapacity plátna před přidáním
+            const maxRowsFit = Math.floor((params.maxH - params.mT - params.mB) / params.objH);
+            const maxColsFit = Math.floor((params.maxW - params.mL - params.mR) / params.objW);
+            const maxObjectsFit = Math.min(maxColsFit * maxRowsFit, params.numCols * maxRowsFit);
+            if (params.numObjs > maxObjectsFit) {
+                params.numObjs = maxObjectsFit;
+                document.getElementById('num-objects').value = params.numObjs;
+            }
+
+            // Přidání nebo oříznutí objektů s připojením k DOM
+            while (objects.length < params.numObjs) {
+                const newObj = createObject();
+                objects.push(newObj);
+                canvasBorder.appendChild(newObj);
+            }
+
+            while (objects.length > params.numObjs) {
+                const removedObj = objects.pop();
+                if (removedObj && removedObj.parentNode) {
+                    removedObj.parentNode.removeChild(removedObj);
+                }
+            }
+
+            let msg = '';
+            let spacingInfo = {};
+            if (selectedLayout === 'default') {
+                const result = calculateDefaultGrid(params);
+                msg = result.msg;
+                spacingInfo = { hSpaceBetween: result.hSpaceBetween, vSpaceBetween: result.vSpaceBetween };
+            } else if (selectedLayout === 'column-big') {
+                const result = calculateColumnBig(params);
+                msg = result.msg;
+                spacingInfo = { hSpaceBetween: result.hSpaceBetween, vSpaceBetween: result.vSpaceBetween };
+            }
+
+            // Debug zobrazení počtu objektů na plátně
+            msg += `${msg ? '<br>' : ''}Debug: Vykresleno ${objects.length} objektů na plátně.`;
+
+            if (msg || spacingInfo.hSpaceBetween !== undefined || spacingInfo.vSpaceBetween !== undefined) {
+                showMessage(msg, 'bg-yellow-100 text-yellow-800 border-yellow-300', spacingInfo);
+            } else {
+                hideMessage();
+            }
+
+            updateDataTable();
+        }
+
+
+               
+           
+        /**
+         * Výpočet pro výchozí mřížku (původní logika).
+         */
+        function calculateDefaultGrid(params) {
+            let msg = '';
+            
+            // Dynamické výpočet počtu řádků podle skutečného počtu objektů
+            const actualNumRows = Math.ceil(params.numObjs / params.numCols);
+            if (actualNumRows !== params.numRows) {
+                params.numRows = actualNumRows;
+                msg += `Upozornění: Počet řádků upraven na ${params.numRows} podle počtu objektů (${params.numObjs}).`;
+            }
+
+            // Omezení počtu objektů podle kapacity plátna a přizpůsobení velikostí
+            const maxRowsFit = Math.floor((params.maxH - params.mT - params.mB) / params.objH);
+            const maxColsFit = Math.floor((params.maxW - params.mL - params.mR) / params.objW);
+            const maxObjectsFit = Math.min(maxColsFit * maxRowsFit, params.numCols * params.numRows);
+            if (params.numObjs > maxObjectsFit) {
+                msg += `${msg ? '<br>' : ''}CHYBA: Počet objektů (${params.numObjs}) přesahuje kapacitu plátna. Omezuji na ${maxObjectsFit} a zmenšuji VÝŠKU a ŠÍŘKU objektů.`;
+                params.numObjs = maxObjectsFit; // Omezení počtu objektů
+                const availableWidth = params.maxW - params.mL - params.mR;
+                const availableHeight = params.maxH - params.mT - params.mB;
+                const newObjW = Math.max(10, Math.floor(availableWidth / params.numCols));
+                const newObjH = Math.max(10, Math.floor(availableHeight / params.numRows));
+                params.objW = newObjW;
+                params.objH = newObjH;
+                document.getElementById('obj-width').value = params.objW;
+                document.getElementById('obj-height').value = params.objH;
+                // Aktualizace počtu objektů v UI, pokud je potřeba
+                document.getElementById('num-objects').value = params.numObjs;
+            }
+
+            // Horizontální mezery: Ruční nebo rovnoměrné
+            let hGaps = params.hGaps;
+            if (hGaps.length !== params.numCols - 1) {
+                hGaps = new Array(params.numCols - 1).fill(0);
+                const totalObjWidth = params.numCols * params.objW;
+                const availableWidthForSpaces = params.maxW - params.mL - params.mR - totalObjWidth;
+                const uniformHGap = availableWidthForSpaces / (params.numCols - 1);
+                hGaps.fill(uniformHGap >= 0 ? uniformHGap : 0);
+            } else {
+                const totalHGapSum = hGaps.reduce((a, b) => a + b, 0);
+                const requiredWidth = (params.numCols * params.objW) + params.mL + params.mR + totalHGapSum;
+                if (requiredWidth > params.maxW) {
+                    msg += `${msg ? '<br>' : ''}CHYBA: Horizontální přesah! Zmenšuji ŠÍŘKU objektů.`;
+                    const excess = requiredWidth - params.maxW;
+                    const newObjW = Math.max(10, params.objW - Math.ceil(excess / params.numCols));
+                    params.objW = newObjW;
+                    document.getElementById('obj-width').value = params.objW;
+                }
+            }
+
+            // Vertikální mezery: Ruční nebo rovnoměrné
+            let vGaps = params.vGaps;
+            if (vGaps.length !== params.numRows - 1) {
+                vGaps = new Array(params.numRows - 1).fill(0);
+                const totalObjHeight = params.numRows * params.objH;
+                const availableHeightForSpaces = params.maxH - params.mT - params.mB - totalObjHeight;
+                const uniformVGap = availableHeightForSpaces / (params.numRows - 1);
+                vGaps.fill(uniformVGap >= 0 ? uniformVGap : 0);
+            } else {
+                const totalVGapSum = vGaps.reduce((a, b) => a + b, 0);
+                const totalObjHeight = params.numRows * params.objH;
+                const requiredHeight = totalObjHeight + params.mT + params.mB + totalVGapSum;
+                if (requiredHeight > params.maxH) {
+                    msg += `${msg ? '<br>' : ''}CHYBA: Vertikální přesah! Zmenšuji VÝŠKU objektů.`;
+                    const excess = requiredHeight - params.maxH;
+                    const newObjH = Math.max(10, params.objH - Math.ceil(excess / params.numRows));
+                    params.objH = newObjH;
+                    document.getElementById('obj-height').value = params.objH;
+                }
+            }
+
+            // Aktualizace počtu objektů v canvasBorder a omezení vykreslení
+            while (objects.length > params.numObjs) {
+                objects[objects.length - 1].remove();
+                objects.pop();
+            }
+            while (objects.length < params.numObjs) {
+                const newObj = createObject();
+                objects.push(newObj);
+                canvasBorder.appendChild(newObj);
+            }
+
+            // Aplikace pozic s variabilními mezerami a vynucením do hranic
+            objects.forEach((obj, index) => {
+                const col = index % params.numCols;
+                const row = Math.floor(index / params.numCols);
+
+                let posX = params.mL;
+                for (let c = 0; c < col; c++) {
+                    posX += params.objW + (c < hGaps.length ? hGaps[c] : 0);
+                }
+
+                let posY = params.mT;
+                for (let r = 0; r < row; r++) {
+                    posY += params.objH + (r < vGaps.length ? vGaps[r] : 0);
+                }
+                
+                // Vynucení pozic do hranic plátna
+                posX = Math.max(0, Math.min(posX, params.maxW - params.objW));
+                posY = Math.max(0, Math.min(posY, params.maxH - params.objH));
+                
+                obj.style.width = `${params.objW}px`;
+                obj.style.height = `${params.objH}px`;
+                obj.style.left = `${posX.toFixed(0)}px`;
+                obj.style.top = `${posY.toFixed(0)}px`;
+
+                obj.dataset.width = params.objW.toFixed(0);
+                obj.dataset.height = params.objH.toFixed(0);
+                obj.dataset.x = posX.toFixed(0);
+                obj.dataset.y = posY.toFixed(0);
+            });
+
+            // Vrácení průměrných mezer pro zobrazení
+            const avgHSpace = hGaps.reduce((a, b) => a + b, 0) / hGaps.length || 0;
+            const avgVSpace = vGaps.reduce((a, b) => a + b, 0) / vGaps.length || 0;
+            return { msg, hSpaceBetween: avgHSpace, vSpaceBetween: avgVSpace };
+        }
+
+
+
+
+
+
+       /**
+         * Výpočet pro Variantu Sloupec + Velký: Asymetrické Dvojité Rozvržení.
+         */
+        function calculateColumnBig(params) {
+            if (params.numObjs < 2) {
+                return { msg: 'CHYBA: Pro tuto variantu je potřeba alespoň 2 objekty.', hSpaceBetween: 0, vSpaceBetween: 0 };
+            }
+
+            let msg = '';
+            bigObjectSide = bigObjectSide === 'left' ? 'right' : 'left';
+            const smallObjWidth = params.objW;
+            const hSpaceBetween = params.hGaps.length > 0 ? params.hGaps[0] : MIN_SPACING; // Použití ruční mezery nebo default
+            const smallColWidth = smallObjWidth + hSpaceBetween;
+            const availableWidthForBig = params.maxW - params.mL - params.mR - smallColWidth;
+            const bigWidth = Math.max(10, availableWidthForBig);
+            const availableHeightForBig = params.maxH - params.mT - params.mB;
+            const bigHeight = Math.max(10, availableHeightForBig);
+            const numSmall = params.numObjs - 1;
+
+            const smallHeight = Math.max(10, Math.floor((bigHeight - (numSmall - 1) * MIN_SPACING) / numSmall));
+            const vSpaceBetweenSmall = numSmall > 1 ? (bigHeight - numSmall * smallHeight) / (numSmall - 1) : 0;
+
+            if (smallHeight < 10) {
+                msg = 'CHYBA: Nedostatek vertikálního prostoru pro malé objekty. Zmenšuji velikost.';
+            }
+
+            const bigObj = objects[0];
+            bigObj.style.width = `${bigWidth}px`;
+            bigObj.style.height = `${bigHeight}px`;
+            bigObj.style.top = `${params.mT}px`;
+            if (bigObjectSide === 'left') {
+                bigObj.style.left = `${params.mL}px`;
+            } else {
+                bigObj.style.left = `${params.maxW - params.mR - bigWidth}px`;
+            }
+            bigObj.dataset.width = bigWidth.toFixed(0);
+            bigObj.dataset.height = bigHeight.toFixed(0);
+            bigObj.dataset.x = bigObj.offsetLeft.toFixed(0);
+            bigObj.dataset.y = params.mT.toFixed(0);
+
+            const smallColX = bigObjectSide === 'left' ? params.maxW - params.mR - smallObjWidth : params.mL;
+            let currentY = params.mT;
+            for (let i = 1; i < params.numObjs; i++) {
+                const obj = objects[i];
+                obj.style.width = `${smallObjWidth}px`;
+                obj.style.height = `${smallHeight}px`;
+                obj.style.left = `${smallColX}px`;
+                obj.style.top = `${currentY.toFixed(0)}px`;
+
+                obj.dataset.width = smallObjWidth.toFixed(0);
+                obj.dataset.height = smallHeight.toFixed(0);
+                obj.dataset.x = smallColX.toFixed(0);
+                obj.dataset.y = currentY.toFixed(0);
+
+                currentY += smallHeight + vSpaceBetweenSmall;
+            }
+
+            return { msg, hSpaceBetween, vSpaceBetween: vSpaceBetweenSmall };
+        }
+       
+       
+       
+        // === 2. TVORBA A INTERAKCE OBJEKTŮ (DRAG & RESIZE) ===
+
+        /**
+         * Vytvoří nový DIV element pro objekt.
+         */
+        function createObject() {
+            const obj = document.createElement('div');
+            // Zajišťuje, že ID counter je vždy vyšší než ID stávajících objektů
+            objectIdCounter = Math.max(objectIdCounter, objects.length) + 1;
+            
+            obj.id = `obj-${objectIdCounter}`;
+            obj.classList.add('object');
+            obj.innerText = `ID: ${objectIdCounter}`;
+            obj.dataset.id = objectIdCounter;
+
+            // Inicializace datových atributů (budou přepsány v calculateGrid)
+            obj.dataset.width = 0;
+            obj.dataset.height = 0;
+            obj.dataset.x = 0;
+            obj.dataset.y = 0;
+
+            setupObjectInteractivity(obj);
+            return obj;
+        }
+        
+        /**
+         * Nastaví listenery pro přesun a změnu velikosti.
+         */
+        function setupObjectInteractivity(obj) {
+            // Používá ResizeObserver pro zachycení nativní změny velikosti
+            const resizeObserver = new ResizeObserver((entries) => {
+                if (!isDragging && activeObject === obj) { // Reaguje pouze na aktivní objekt
+                    for (let entry of entries) {
+                        const { width, height } = entry.contentRect;
+                        
+                        // Aktualizuje data atributy
+                        entry.target.dataset.width = width.toFixed(0);
+                        entry.target.dataset.height = height.toFixed(0);
+                        
+                        // Po změně velikosti hned zavoláme adjustSpacings a bounds
+                        adjustSpacings();
+                        enforceBounds();
+                        updateDataTable();
+                    }
+                }
+            });
+            resizeObserver.observe(obj);
+            
+            // MOUSE DOWN (Start přesunu)
+            obj.addEventListener('mousedown', (e) => {
+                const cursor = window.getComputedStyle(obj).getPropertyValue('cursor');
+                // Pokud je kurzor resize, necháme nativní chování (a ResizeObserver to zachytí)
+                if (cursor.includes('resize')) {
+                    activeObject = obj;
+                    isResizing = true;
+                    return; 
+                }
+                
+                isDragging = true;
+                activeObject = obj;
+                offset.x = e.clientX - obj.getBoundingClientRect().left;
+                offset.y = e.clientY - obj.getBoundingClientRect().top;
+                obj.style.cursor = 'grabbing';
+                e.stopPropagation(); 
+            });
+
+            // MOUSE UP (Konec přesunu/resize)
+            // Přidáno na dokument pro robustnost, i když myš opustí objekt
+            document.addEventListener('mouseup', () => {
+                if (activeObject && (isDragging || isResizing)) {
+                    isDragging = false;
+                    isResizing = false;
+                    activeObject.style.cursor = 'grab';
+                    
+                    // Aktualizuje finální pozici a rozměry (pro drag)
+                    activeObject.dataset.x = activeObject.offsetLeft.toFixed(0);
+                    activeObject.dataset.y = activeObject.offsetTop.toFixed(0);
+                    activeObject.dataset.width = activeObject.offsetWidth.toFixed(0);
+                    activeObject.dataset.height = activeObject.offsetHeight.toFixed(0);
+
+                    // Zajistíme, že po manuální změně se objekty nepřekrývají
+                    adjustSpacings();
+                    enforceBounds();
+                    updateDataTable();
+                    activeObject = null;
+                }
+            });
+        }
+        
+        // MOUSE MOVE (Provedení přesunu)
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && activeObject) {
+                const canvasRect = canvasBorder.getBoundingClientRect();
+                let newX = e.clientX - offset.x - canvasRect.left;
+                let newY = e.clientY - offset.y - canvasRect.top;
+                
+                // Omezení pohybu v rámci plátna (objekty nesmí jít mimo)
+                const clampedX = Math.max(0, Math.min(newX, canvasRect.width - activeObject.offsetWidth));
+                const clampedY = Math.max(0, Math.min(newY, canvasRect.height - activeObject.offsetHeight));
+
+                activeObject.style.left = `${clampedX}px`;
+                activeObject.style.top = `${clampedY}px`;
+                
+                // Aktualizuje datové atributy pro reálnou pozici
+                activeObject.dataset.x = clampedX.toFixed(0);
+                activeObject.dataset.y = clampedY.toFixed(0);
+            }
+        });
+
+        // === 3. AUTOMATICKÁ ÚPRAVA MEZER A HRANIC ===
+
+        /**
+         * Zajišťuje, že mezi objekty je minimální mezera (MIN_SPACING) 
+         * po ruční interakci. Upravuje pouze pozice posunem doprava/dolů.
+         */
+        function adjustSpacings() {
+            if (objects.length < 2) return;
+            
+            // Získání aktuálních bounding boxů
+            const bounds = objects.map(obj => ({
+                id: obj.id,
+                x: obj.offsetLeft,
+                y: obj.offsetTop,
+                w: obj.offsetWidth,
+                h: obj.offsetHeight,
+                element: obj
+            }));
+
+            // --- Vícenásobná iterace pro stabilizaci polohy ---
+            // Tuto smyčku děláme vícekrát, aby se posuny postupně stabilizovaly 
+            // a zamezilo se situaci, kdy posun jednoho objektu vytvoří kolizi s dalším.
+            for (let k = 0; k < objects.length; k++) { 
+                let moved = false;
+
+                // Třídění podle X pro horizontální kontrolu
+                const sortedByX = [...bounds].sort((a, b) => a.x - b.x);
+
+                // 1. Horizontální úprava (X)
+                for (let i = 1; i < sortedByX.length; i++) {
+                    const prev = sortedByX[i - 1];
+                    const current = sortedByX[i];
+                    
+                    // Kontrola, zda se objekty vertikálně překrývají (jsou v "řádku")
+                    const yOverlap = Math.max(0, Math.min(prev.y + prev.h, current.y + current.h) - Math.max(prev.y, current.y));
+
+                    if (yOverlap > MIN_SPACING / 2) { // Překrývají se vertikálně dostatečně
+                        const requiredMinX = prev.x + prev.w + MIN_SPACING;
+                        
+                        if (current.x < requiredMinX) {
+                            // Je kolize, posuň aktuální objekt doprava
+                            const overlap = requiredMinX - current.x;
+                            const newX = current.x + overlap;
+                            
+                            current.element.style.left = `${newX.toFixed(0)}px`;
+                            current.element.dataset.x = newX.toFixed(0);
+                            current.x = newX; // Aktualizace pro další iterace
+                            moved = true;
+                        }
+                    }
+                }
+                
+                // Třídění podle Y pro vertikální kontrolu
+                const sortedByY = [...bounds].sort((a, b) => a.y - b.y);
+
+                // 2. Vertikální úprava (Y)
+                for (let i = 1; i < sortedByY.length; i++) {
+                    const prev = sortedByY[i - 1];
+                    const current = sortedByY[i];
+                    
+                    // Kontrola, zda se objekty horizontálně překrývají (jsou ve "sloupci")
+                    const xOverlap = Math.max(0, Math.min(prev.x + prev.w, current.x + current.w) - Math.max(prev.x, current.x));
+                    
+                    if (xOverlap > MIN_SPACING / 2) { // Překrývají se horizontálně dostatečně
+                        const requiredMinY = prev.y + prev.h + MIN_SPACING;
+                        
+                        if (current.y < requiredMinY) {
+                            // Je kolize, posuň aktuální objekt dolů
+                            const overlap = requiredMinY - current.y;
+                            const newY = current.y + overlap;
+                            
+                            current.element.style.top = `${newY.toFixed(0)}px`;
+                            current.element.dataset.y = newY.toFixed(0);
+                            current.y = newY; // Aktualizace pro další iterace
+                            moved = true;
+                        }
+                    }
+                }
+                
+                // Pokud se během celé iterace nic nepohlo, můžeme skončit
+                if (!moved) break; 
+            }
+
+            // Po úpravě mezer zajistíme, že objekty nejsou mimo plátno
+            enforceBounds();
+        }
+
+        /**
+         * Zajišťuje, že všechny objekty zůstanou uvnitř hranic plátna.
+         */
+        function enforceBounds() {
+            const canvasW = canvasBorder.offsetWidth;
+            const canvasH = canvasBorder.offsetHeight;
+
+            objects.forEach(obj => {
+                let x = obj.offsetLeft;
+                let y = obj.offsetTop;
+                const w = obj.offsetWidth;
+                const h = obj.offsetHeight;
+
+                // Omezení X
+                if (x < 0) x = 0;
+                if (x + w > canvasW) x = canvasW - w;
+                
+                // Omezení Y
+                if (y < 0) y = 0;
+                if (y + h > canvasH) y = canvasH - h;
+
+                obj.style.left = `${x.toFixed(0)}px`;
+                obj.style.top = `${y.toFixed(0)}px`;
+
+                obj.dataset.x = x.toFixed(0);
+                obj.dataset.y = y.toFixed(0);
+            });
+        }
+
+        // === 4. VÝSTUPNÍ FUNKCE (TABULKA A EXPORT) ===
+        
+        /**
+         * Aktualizuje tabulku s daty o objektech.
+         */
+        function updateDataTable() {
+            dataTableBody.innerHTML = '';
+            
+            objects.forEach(obj => {
+                const row = dataTableBody.insertRow();
+                row.insertCell().textContent = obj.dataset.id;
+                row.insertCell().textContent = obj.dataset.width;
+                row.insertCell().textContent = obj.dataset.height;
+                row.insertCell().textContent = obj.dataset.x;
+                row.insertCell().textContent = obj.dataset.y;
+            });
+        }
+
+        /**
+         * Exportuje data do JSON formátu.
+         */
+        function exportToJson() {
+            const data = objects.map(obj => ({
+                ID: parseInt(obj.dataset.id),
+                Sirka: parseFloat(obj.dataset.width),
+                Vyska: parseFloat(obj.dataset.height),
+                PoziceX: parseFloat(obj.dataset.x),
+                PoziceY: parseFloat(obj.dataset.y)
+            }));
+
+            const jsonString = JSON.stringify(data, null, 2);
+            const outputBox = document.getElementById('json-output');
+            
+            outputBox.textContent = jsonString;
+            outputBox.classList.remove('hidden');
+
+            // Zkopírování do schránky
+            try {
+                navigator.clipboard.writeText(jsonString);
+                showMessage('Data exportována a zkopírována do schránky (JSON).', 'bg-green-100 text-green-700 border-green-300');
+            } catch (err) {
+                // Fallback pro omezená prostředí
+                showMessage('Data exportována. Zkopírujte JSON ze zobrazeného pole. (Kopírování do schránky se nezdařilo.)', 'bg-red-100 text-red-700 border-red-300');
+            }
+        }
+
+
+        // === 5. LISTENERY UDÁLOSTÍ A INICIALIZACE ===
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializace při načtení stránky
+            calculateLayout(); 
+            
+            // Tlačítko Přepočítat
+            document.getElementById('recalculate-button').addEventListener('click', calculateLayout);
+            
+            // Tlačítko Přidat objekt
+            document.getElementById('add-object-button').addEventListener('click', () => {
+                const numObjectsInput = document.getElementById('num-objects');
+                const currentCount = parseInt(numObjectsInput.value);
+                numObjectsInput.value = currentCount + 1;
+                calculateLayout();
+            });
+
+             // Tlačítko Přidat objekt
+            document.getElementById('remove-object-button').addEventListener('click', () => {
+                const numObjectsInput = document.getElementById('num-objects');
+                const currentCount = parseInt(numObjectsInput.value);
+                numObjectsInput.value = currentCount - 1;
+                calculateLayout();
+            });
+
+            // Tlačítko Export
+            document.getElementById('export-button').addEventListener('click', exportToJson);
+
+            // Změna layoutu volá přepočet
+            document.getElementById('layout-option').addEventListener('change', calculateLayout);
+
+            // Volá přepočet po každé změně plátna nebo sloupce
+            document.getElementById('max-height').addEventListener('change', calculateLayout);
+            document.getElementById('max-width').addEventListener('change', calculateLayout);
+            document.getElementById('num-cols').addEventListener('change', calculateLayout);
+            document.getElementById('margin-top').addEventListener('change', calculateLayout);
+            document.getElementById('margin-bottom').addEventListener('change', calculateLayout);
+            document.getElementById('margin-left').addEventListener('change', calculateLayout);
+            document.getElementById('margin-right').addEventListener('change', calculateLayout);
+            
+            // POZOR: Změna obj-width/height nevolá automaticky přepočet, 
+            // protože uživatel může chtít použít stejné rozměry pro mřížku
+            // a poté ručně upravit velikost jednotlivých objektů.
+            // Změna v těchto polích vyžaduje stisk "Přepočítat".
+        });
+    </script>
+
+<footer>
+      <br> <br>
+      © 2025 ePLÁnovač rozvržení PWBI • mmlass
+</footer>
+
+</body>
+</html>
